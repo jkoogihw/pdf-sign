@@ -110,36 +110,57 @@ async function getInputBytes(fileInput, urlInput, label) {
 async function findAgentAnchor(pdfBytes) {
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) }).promise;
 
+  // 1단계: 양식 유형 판별을 위한 전체 텍스트 수집 (주로 1페이지)
+  let docType = '장기'; // 기본값
+  const firstPage = await doc.getPage(1);
+  const firstPageContent = await firstPage.getTextContent();
+  const fullSpecText = firstPageContent.items.map((it) => it.str).join(' ');
+
+  if (fullSpecText.includes('자동차보험상품')) {
+    docType = '자동차';
+  } else if (fullSpecText.includes('일반보험상품')) {
+    docType = '일반';
+  } else if (fullSpecText.includes('보험상품')) {
+    docType = '장기';
+  }
+
+  // 양식에 따른 기준 키워드 설정
+  const anchorKeyword = docType === '장기' ? '보험모집인' : '설계사';
+  console.log(`[감지된 양식: ${docType}] 기준 키워드: ${anchorKeyword}`);
+
   for (let pageNo = 1; pageNo <= doc.numPages; pageNo += 1) {
     const page = await doc.getPage(pageNo);
     const textContent = await page.getTextContent();
+    const items = textContent.items;
 
-    let bestMatch = null;
+    // 2단계: 기준 키워드('보험모집인' 또는 '설계사') 탐색
+    const baseItems = items.filter((item) => String(item.str || '').includes(anchorKeyword));
 
-    for (const item of textContent.items) {
-      const text = String(item.str || '');
-      if (!text) continue;
+    for (const baseItem of baseItems) {
+      const baseY = baseItem.transform[5];
+      const baseX = baseItem.transform[4];
 
-      const hasMainToken = text.includes('보험모집인') || text.includes('조정국');
-      if (!hasMainToken) continue;
+      // 3단계: 동일 선상 우측에서 '(서명/인)' 탐색
+      const signTargets = items.filter((item) => {
+        const itemY = item.transform[5];
+        const itemX = item.transform[4];
+        return Math.abs(itemY - baseY) < 5 && itemX >= baseX;
+      });
 
-      const score =
-        (text.includes('보험모집인') ? 2 : 0) +
-        (text.includes('조정국') ? 2 : 0) +
-        (text.includes('서명') || text.includes('인') ? 1 : 0);
-
-      if (!bestMatch || score > bestMatch.score) {
-        bestMatch = {
-          pageIndex: pageNo - 1,
-          x: item.transform[4],
-          y: item.transform[5],
-          width: item.width || 120,
-          score,
-        };
+      for (const item of signTargets) {
+        const text = String(item.str || '').replace(/\s+/g, '');
+        if (text.includes('(서명/인)') || text.includes('서명/인') || text.endsWith('인)')) {
+          return {
+            pageIndex: pageNo - 1,
+            x: item.transform[4],
+            y: item.transform[5],
+            width: item.width || 40,
+            text: item.str,
+            docType,
+          };
+        }
       }
     }
-
-    if (bestMatch) return bestMatch;
   }
 
   return null;
@@ -185,8 +206,13 @@ async function signPdf() {
 
     if (anchor) {
       pageIndex = anchor.pageIndex;
-      x = anchor.x + anchor.width - signWidth - 8 + dx;
-      y = anchor.y + dy;
+      // '(서명/인)' 문구의 가로 중앙과 서명 이미지의 가로 중앙을 일치시킴
+      x = anchor.x + anchor.width / 2 - signWidth / 2 + dx;
+
+      // 텍스트의 baseline(anchor.y)으로부터 글자 높이 절반 위가 글자 중앙
+      // 서명 이미지의 높이 절반을 빼서 글자 중앙과 이미지 중앙을 일치시킴
+      const textCenterY = anchor.y + 5; // 일반적인 텍스트 높이의 절반(약 5pt) 가산
+      y = textCenterY - signHeight / 2 + dy;
     }
 
     const page = pdfDoc.getPage(pageIndex);
@@ -203,8 +229,8 @@ async function signPdf() {
 
     setStatus(
       anchor
-        ? '완료! 보험모집인 문구 기준으로 서명을 배치해 다운로드했습니다.'
-        : '완료! 문구 탐색 실패로 기본 위치에 서명을 배치해 다운로드했습니다.',
+        ? `완료! [${anchor.docType}] 양식을 감지하여 서명을 배치했습니다.`
+        : '완료! 문구 탐색 실패로 기본 위치에 서명을 배치했습니다.',
       'success'
     );
   } catch (error) {
