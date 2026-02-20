@@ -43,6 +43,7 @@ python3 -m http.server 4173
 - `Settings > Pages`에서 Source가 `GitHub Actions`인지 확인
 - 워크플로가 `main` 브랜치 push에서 실행됐는지 확인
 - 실패한 `browser-smoke-test` 잡에서 `http-server-log` 아티팩트 확인
+- `Setup Pages`에서 `Not Found`가 나면: 저장소의 Pages가 아직 미활성 상태입니다. 워크플로는 `enablement: true`로 자동 활성화를 시도하지만, 권한이 부족하면 저장소 관리자 권한 계정으로 `Settings > Pages`에서 한 번 수동 활성화가 필요합니다.
 
 ## GitHub push 방법
 원격 저장소: `https://github.com/nivalcar/pdf-sign.git`
