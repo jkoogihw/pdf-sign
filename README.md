@@ -30,6 +30,7 @@ python3 -m http.server 4173
   - 페이지 타이틀이 `PDF 서명 입히기`인지 확인
   - 실패 시 서버 로그를 아티팩트로 업로드
 - 2단계: 테스트 통과 시 GitHub Pages 자동 배포
+  - Pages 아티팩트는 `_site` 폴더(index.html, styles.css, app.js)만 업로드
 
 ### 처음 1회 설정
 1. GitHub 저장소 `Settings` → `Pages`
@@ -37,6 +38,11 @@ python3 -m http.server 4173
 3. `main` 브랜치에 push
 4. `Actions` 탭에서 `Deploy static app to GitHub Pages` 성공 확인
 5. 배포 URL 접속 (`https://<계정>.github.io/pdf-sign/`)
+
+### 배포 오류 체크리스트
+- `Settings > Pages`에서 Source가 `GitHub Actions`인지 확인
+- 워크플로가 `main` 브랜치 push에서 실행됐는지 확인
+- 실패한 `browser-smoke-test` 잡에서 `http-server-log` 아티팩트 확인
 
 ## GitHub push 방법
 원격 저장소: `https://github.com/nivalcar/pdf-sign.git`
@@ -58,6 +64,18 @@ git push -u origin main
 git remote set-url origin https://github.com/nivalcar/pdf-sign.git
 git push -u origin main
 ```
+
+## 머지 충돌을 줄이는 방법
+- PR 머지 전에 반드시 최신 `main` 반영
+
+```bash
+git fetch origin
+git rebase origin/main
+```
+
+- 충돌이 자주 나는 파일(`README.md`, `.github/workflows/*`)은 한 번에 한 PR에서만 수정
+- 자동 생성 파일/불필요 변경을 커밋에 포함하지 않기
+- PR을 오래 끌지 말고 작게 자주 머지하기
 
 ## 파일 구성
 - `index.html`: UI

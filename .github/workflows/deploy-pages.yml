@@ -17,6 +17,7 @@ concurrency:
 jobs:
   browser-smoke-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +34,7 @@ jobs:
         run: npm install --no-save playwright@1.51.1
 
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Start static server
         run: |
@@ -53,7 +54,7 @@ jobs:
 
       - name: Browser smoke test (Playwright Chromium)
         run: |
-          node -e "(async () => { const { chromium } = require('playwright'); const browser = await chromium.launch({ headless: true }); const page = await browser.newPage(); await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' }); const title = await page.title(); if (!title.includes('PDF 서명 입히기')) { throw new Error('Unexpected title: ' + title); } await browser.close(); })().catch((e)=>{ console.error(e); process.exit(1); });"
+          node -e "(async () => { const { chromium } = require('playwright'); const browser = await chromium.launch({ headless: true }); const page = await browser.newPage(); await page.goto('http://127.0.0.1:4173', { waitUntil: 'domcontentloaded' }); const title = await page.title(); if (!title.includes('PDF 서명 입히기')) { throw new Error('Unexpected title: ' + title); } await browser.close(); })().catch((e)=>{ console.error(e); process.exit(1); });"
 
       - name: Upload server log on failure
         if: failure()
@@ -82,10 +83,15 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p _site
+          cp index.html styles.css app.js _site/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
