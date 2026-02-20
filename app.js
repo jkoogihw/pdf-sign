@@ -78,9 +78,10 @@ function validateInputBytes(bytes, label, contentType = '') {
 
 async function getInputBytes(fileInput, urlInput, label) {
   if (fileInput.files?.[0]) {
-    const bytes = new Uint8Array(await fileInput.files[0].arrayBuffer());
-    validateInputBytes(bytes, label, fileInput.files[0].type || '');
-    return bytes;
+    const file = fileInput.files[0];
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    validateInputBytes(bytes, label, file.type || '');
+    return { bytes, fileName: file.name };
   }
 
   const url = urlInput.value.trim();
@@ -104,7 +105,21 @@ async function getInputBytes(fileInput, urlInput, label) {
   const contentType = response.headers.get('content-type') || '';
   const bytes = new Uint8Array(await response.arrayBuffer());
   validateInputBytes(bytes, label, contentType);
-  return bytes;
+
+  // URL에서 파일명 추출 (확장자 제외)
+  let fileName = 'document.pdf';
+  try {
+    const urlObj = new URL(url);
+    const pathSegments = urlObj.pathname.split('/');
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    if (lastSegment && lastSegment.includes('.')) {
+      fileName = decodeURIComponent(lastSegment);
+    }
+  } catch (e) {
+    // URL 파싱 실패 시 기본값 유지
+  }
+
+  return { bytes, fileName };
 }
 
 async function findAgentAnchor(pdfBytes) {
@@ -148,14 +163,26 @@ async function findAgentAnchor(pdfBytes) {
       });
 
       for (const item of signTargets) {
-        const text = String(item.str || '').replace(/\s+/g, '');
-        if (text.includes('(서명/인)') || text.includes('서명/인') || text.endsWith('인)')) {
+        const fullText = String(item.str || '');
+        const cleanText = fullText.replace(/\s+/g, '');
+        if (cleanText.includes('(서명/인)') || cleanText.includes('서명/인') || cleanText.endsWith('인)')) {
+          let x = item.transform[4];
+          let width = item.width || 40;
+
+          // 이름(조정국 등)과 '(서명/인)'이 한 아이템에 묶여 있는 경우 처리
+          const signPartIdx = fullText.indexOf('(');
+          if (signPartIdx > 0) {
+            const ratio = signPartIdx / fullText.length;
+            x += width * ratio;
+            width = width * (1 - ratio);
+          }
+
           return {
             pageIndex: pageNo - 1,
-            x: item.transform[4],
+            x: x,
             y: item.transform[5],
-            width: item.width || 40,
-            text: item.str,
+            width: width,
+            text: fullText,
             docType,
           };
         }
@@ -183,9 +210,9 @@ async function signPdf() {
   setStatus('파일을 불러오는 중입니다...');
 
   try {
-    const rawPdfBytes = await getInputBytes(el.pdfFile, el.pdfUrl, 'PDF');
+    const { bytes: rawPdfBytes, fileName: originName } = await getInputBytes(el.pdfFile, el.pdfUrl, 'PDF');
     const pdfBytes = normalizePdfBytes(rawPdfBytes);
-    const signBytes = await getInputBytes(el.signFile, el.signUrl, '서명 이미지');
+    const { bytes: signBytes } = await getInputBytes(el.signFile, el.signUrl, '서명 이미지');
 
     setStatus('서명 위치를 탐색하는 중입니다...');
     const anchor = await findAgentAnchor(pdfBytes);
@@ -195,7 +222,7 @@ async function signPdf() {
       ? await pdfDoc.embedPng(signBytes)
       : await pdfDoc.embedJpg(signBytes);
 
-    const signWidth = Number(el.signWidth.value) || 64;
+    const signWidth = Number(el.signWidth.value) || 120;
     const signHeight = (image.height / image.width) * signWidth;
     const dx = Number(el.offsetX.value) || 0;
     const dy = Number(el.offsetY.value) || 0;
@@ -225,7 +252,12 @@ async function signPdf() {
     page.drawImage(image, { x, y, width: signWidth, height: signHeight, opacity: 1 });
 
     const output = await pdfDoc.save();
-    downloadPdf(output, 'signed.pdf');
+
+    // 출력파일명 생성: 원본파일명_추가서명.pdf
+    const nameWithoutExt = originName.replace(/\.[^/.]+$/, "");
+    const finalFileName = `${nameWithoutExt}_추가서명.pdf`;
+
+    downloadPdf(output, finalFileName);
 
     setStatus(
       anchor
