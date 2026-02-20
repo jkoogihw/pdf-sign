@@ -35,6 +35,20 @@ python3 -m http.server 4173
 3. `main` 브랜치에 push
 4. `Actions` 탭에서 `Deploy static app to GitHub Pages` 성공 확인
 5. 배포 URL 접속 (`https://<계정>.github.io/pdf-sign/`)
+## 서비스 배포 방법
+정적 사이트 호스팅에 그대로 올리면 됩니다. (예: GitHub Pages, Netlify, Vercel)
+
+### 1) GitHub Pages
+1. 이 저장소를 GitHub에 push
+2. GitHub 저장소 `Settings` → `Pages`
+3. `Build and deployment`에서 `Deploy from a branch` 선택
+4. 브랜치 `main` / 폴더 `/ (root)` 선택 후 저장
+5. 수 분 후 `https://<계정>.github.io/pdf-sign/` 형태로 접속
+
+### 2) Netlify / Vercel
+- 새 프로젝트 import 후, 별도 빌드 명령 없이 루트 정적 파일을 배포하면 됩니다.
+- Build command: 비움
+- Output directory: 비움(루트)
 
 ## GitHub push 방법
 원격 저장소: `https://github.com/nivalcar/pdf-sign.git`
