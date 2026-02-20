@@ -1,7 +1,7 @@
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://localhost:8888/")
+$listener.Prefixes.Add("http://localhost:8080/")
 $listener.Start()
-Write-Host "Server running on http://localhost:8888"
+Write-Host "Server running on http://localhost:8080"
 Write-Host "Press Ctrl+C to stop the server"
 
 while ($listener.IsListening) {
@@ -25,25 +25,31 @@ while ($listener.IsListening) {
             $ext = [System.IO.Path]::GetExtension($fullPath)
             if ($ext -eq ".html") {
                 $response.ContentType = "text/html"
-            } elseif ($ext -eq ".css") {
+            }
+            elseif ($ext -eq ".css") {
                 $response.ContentType = "text/css"
-            } elseif ($ext -eq ".js") {
+            }
+            elseif ($ext -eq ".js") {
                 $response.ContentType = "application/javascript"
-            } elseif ($ext -eq ".json") {
+            }
+            elseif ($ext -eq ".json") {
                 $response.ContentType = "application/json"
-            } else {
+            }
+            else {
                 $response.ContentType = "application/octet-stream"
             }
 
             $response.OutputStream.Write($content, 0, $content.Length)
-        } else {
+        }
+        else {
             $response.StatusCode = 404
             $notFoundMsg = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found")
             $response.OutputStream.Write($notFoundMsg, 0, $notFoundMsg.Length)
         }
 
         $response.OutputStream.Close()
-    } catch {
+    }
+    catch {
         Write-Host "Error: $_"
     }
 }

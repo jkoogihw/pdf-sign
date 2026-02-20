@@ -108,7 +108,7 @@ async function getInputBytes(fileInput, urlInput, label) {
 }
 
 async function findAgentAnchor(pdfBytes) {
-  const doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) }).promise;
 
   for (let pageNo = 1; pageNo <= doc.numPages; pageNo += 1) {
     const page = await doc.getPage(pageNo);
