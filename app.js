@@ -20,9 +20,43 @@ function setStatus(message, type = '') {
   el.status.className = `status ${type}`.trim();
 }
 
+function isPdf(bytes) {
+  return (
+    bytes.length >= 5 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46 &&
+    bytes[4] === 0x2d
+  );
+}
+
+function isPng(bytes) {
+  return bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78;
+}
+
+function isJpeg(bytes) {
+  return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+function validateInputBytes(bytes, label, contentType = '') {
+  if (label === 'PDF' && !isPdf(bytes)) {
+    const typeHint = contentType ? ` (응답 타입: ${contentType})` : '';
+    throw new Error(
+      `올바른 PDF 파일이 아닙니다${typeHint}. URL 입력 시 로그인 페이지/HTML이 내려오거나 CORS로 차단될 수 있어요. PDF 파일 업로드를 권장합니다.`
+    );
+  }
+
+  if (label === '서명 이미지' && !isPng(bytes) && !isJpeg(bytes)) {
+    throw new Error('서명 이미지는 PNG 또는 JPG 파일만 지원합니다.');
+  }
+}
+
 async function getInputBytes(fileInput, urlInput, label) {
   if (fileInput.files?.[0]) {
-    return new Uint8Array(await fileInput.files[0].arrayBuffer());
+    const bytes = new Uint8Array(await fileInput.files[0].arrayBuffer());
+    validateInputBytes(bytes, label, fileInput.files[0].type || '');
+    return bytes;
   }
 
   const url = urlInput.value.trim();
@@ -30,12 +64,23 @@ async function getInputBytes(fileInput, urlInput, label) {
     throw new Error(`${label} 파일 업로드 또는 URL 입력이 필요합니다.`);
   }
 
-  const response = await fetch(url);
+  let response;
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw new Error(
+      `${label} URL 요청에 실패했습니다. 브라우저 CORS 제한 또는 네트워크 문제일 수 있습니다. (${error.message})`
+    );
+  }
+
   if (!response.ok) {
     throw new Error(`${label} URL을 불러오지 못했습니다. (${response.status})`);
   }
 
-  return new Uint8Array(await response.arrayBuffer());
+  const contentType = response.headers.get('content-type') || '';
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  validateInputBytes(bytes, label, contentType);
+  return bytes;
 }
 
 async function findAgentAnchor(pdfBytes) {
@@ -79,14 +124,12 @@ async function findAgentAnchor(pdfBytes) {
 function downloadPdf(bytes, filename) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
-
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -102,8 +145,7 @@ async function signPdf() {
     const anchor = await findAgentAnchor(pdfBytes);
 
     const pdfDoc = await PDFDocument.load(pdfBytes);
-    const isPng = signBytes[0] === 137 && signBytes[1] === 80;
-    const image = isPng
+    const image = isPng(signBytes)
       ? await pdfDoc.embedPng(signBytes)
       : await pdfDoc.embedJpg(signBytes);
 
@@ -129,13 +171,7 @@ async function signPdf() {
     x = Math.max(0, Math.min(x, pageWidth - signWidth));
     y = Math.max(0, Math.min(y, pageHeight - signHeight));
 
-    page.drawImage(image, {
-      x,
-      y,
-      width: signWidth,
-      height: signHeight,
-      opacity: 1,
-    });
+    page.drawImage(image, { x, y, width: signWidth, height: signHeight, opacity: 1 });
 
     const output = await pdfDoc.save();
     downloadPdf(output, 'signed.pdf');
