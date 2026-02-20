@@ -44,6 +44,7 @@ python3 -m http.server 4173
 - 워크플로가 `main` 브랜치 push에서 실행됐는지 확인
 - 실패한 `browser-smoke-test` 잡에서 `http-server-log` 아티팩트 확인
 - 브라우저에서 `No PDF header found` 오류가 나오면: URL이 실제 PDF가 아니라 로그인/에러 HTML을 반환한 경우가 많습니다. 이때는 PDF를 직접 업로드해서 진행하세요.
+- 앱에서 PDF 헤더를 파일 앞부분(최대 1KB)까지 탐색해 `%PDF-` 이전 잡음 바이트가 있어도 처리하도록 보정합니다.
 - `Setup Pages`에서 `Not Found`가 나면: 저장소의 Pages가 아직 미활성 상태입니다. 워크플로는 `enablement: true`로 자동 활성화를 시도하지만, 권한이 부족하면 저장소 관리자 권한 계정으로 `Settings > Pages`에서 한 번 수동 활성화가 필요합니다.
 
 ## GitHub push 방법

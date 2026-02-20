@@ -20,15 +20,39 @@ function setStatus(message, type = '') {
   el.status.className = `status ${type}`.trim();
 }
 
+function findPdfHeaderOffset(bytes, maxScan = 1024) {
+  const end = Math.min(bytes.length - 4, maxScan);
+  for (let i = 0; i <= end; i += 1) {
+    if (
+      bytes[i] === 0x25 &&
+      bytes[i + 1] === 0x50 &&
+      bytes[i + 2] === 0x44 &&
+      bytes[i + 3] === 0x46 &&
+      bytes[i + 4] === 0x2d
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 function isPdf(bytes) {
-  return (
-    bytes.length >= 5 &&
-    bytes[0] === 0x25 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x44 &&
-    bytes[3] === 0x46 &&
-    bytes[4] === 0x2d
-  );
+  return findPdfHeaderOffset(bytes) >= 0;
+}
+
+function normalizePdfBytes(bytes) {
+  const offset = findPdfHeaderOffset(bytes);
+  if (offset < 0) {
+    throw new Error(
+      '올바른 PDF 헤더(%PDF-)를 찾지 못했습니다. URL이 실제 PDF가 아닌 HTML/로그인 응답일 수 있습니다.'
+    );
+  }
+
+  if (offset === 0) {
+    return bytes;
+  }
+
+  return bytes.slice(offset);
 }
 
 function isPng(bytes) {
@@ -138,7 +162,8 @@ async function signPdf() {
   setStatus('파일을 불러오는 중입니다...');
 
   try {
-    const pdfBytes = await getInputBytes(el.pdfFile, el.pdfUrl, 'PDF');
+    const rawPdfBytes = await getInputBytes(el.pdfFile, el.pdfUrl, 'PDF');
+    const pdfBytes = normalizePdfBytes(rawPdfBytes);
     const signBytes = await getInputBytes(el.signFile, el.signUrl, '서명 이미지');
 
     setStatus('서명 위치를 탐색하는 중입니다...');
