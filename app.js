@@ -13,6 +13,9 @@ const el = {
   offsetY: document.getElementById('offsetY'),
   signButton: document.getElementById('signButton'),
   status: document.getElementById('status'),
+  dropZonePdf: document.getElementById('dropZonePdf'),
+  dropZoneSign: document.getElementById('dropZoneSign'),
+  signPreview: document.getElementById('signPreview'),
 };
 
 function setStatus(message, type = '') {
@@ -58,6 +61,62 @@ function normalizePdfBytes(bytes) {
 function isPng(bytes) {
   return bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78;
 }
+
+function handleFileSelect(file, type) {
+  if (!file) return;
+
+  const input = type === 'pdf' ? el.pdfFile : el.signFile;
+  const container = type === 'pdf' ? el.dropZonePdf : el.dropZoneSign;
+
+  // DataTransfer를 사용하여 input.files 업데이트
+  const dataTransfer = new DataTransfer();
+  dataTransfer.items.add(file);
+  input.files = dataTransfer.files;
+
+  // 시각적 피드백 업데이트
+  container.classList.add('has-file');
+  const filenameEl = container.querySelector('.filename');
+  if (filenameEl) filenameEl.textContent = file.name;
+
+  if (type === 'sign' && file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      el.signPreview.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function initDropZone(zone, type) {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((name) => {
+    zone.addEventListener(name, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  zone.addEventListener('dragover', () => zone.classList.add('dragover'));
+  ['dragleave', 'drop'].forEach((name) => {
+    zone.addEventListener(name, () => zone.classList.remove('dragover'));
+  });
+
+  zone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file, type);
+  });
+
+  zone.addEventListener('click', () => {
+    const input = type === 'pdf' ? el.pdfFile : el.signFile;
+    input.click();
+  });
+}
+
+// 초기화
+initDropZone(el.dropZonePdf, 'pdf');
+initDropZone(el.dropZoneSign, 'sign');
+
+el.pdfFile.onchange = (e) => handleFileSelect(e.target.files[0], 'pdf');
+el.signFile.onchange = (e) => handleFileSelect(e.target.files[0], 'sign');
 
 function isJpeg(bytes) {
   return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
