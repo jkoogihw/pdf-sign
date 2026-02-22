@@ -1,4 +1,4 @@
-# Deploy dev branch to a staging repository's Pages
+# Deploy dev branch to a separate staging repository's gh-pages branch
 name: Deploy dev branch to staging Pages
 
 on:
@@ -7,32 +7,33 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages-dev"
-  cancel-in-progress: false
 
 jobs:
-  deploy-dev:
-    environment:
-      name: github-pages-dev
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy-dev-to-staging:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-      - name: Deploy to GitHub Pages (staging)
-        id: deployment
-        uses: actions/deploy-pages@v4
-        # Note: To host dev on a separate Pages site under this same repo, you can configure
-        # as needed. If you prefer a different repo for staging, use a PAT and push the
-        # build output to that repo's gh-pages branch (requires setting a secret STAGING_PAT).
 
+      - name: Prepare artifact
+        run: |
+          # Copy site files to a clean directory excluding .git
+          mkdir -p out
+          rsync -av --exclude='.git' --exclude='.github' ./ out/ || (robocopy . out /E /XD .git .github)
+
+      - name: Deploy to staging repository
+        env:
+          STAGING_REPO: jkoogihw/pdf-sign-staging  # <-- Create this repo (or change name)
+          STAGING_PAT: ${{ secrets.STAGING_PAT }}     # <-- Create this secret in repository settings
+        run: |
+          if [ -z "$STAGING_PAT" ]; then
+            echo "ERROR: STAGING_PAT secret is not set"; exit 1
+          fi
+          cd out
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy dev build from $GITHUB_REPOSITORY@$GITHUB_SHA" || true
+          # Push to staging repo's gh-pages branch (force)
+          git push --force "https://x-access-token:${STAGING_PAT}@github.com/${STAGING_REPO}.git" HEAD:gh-pages
