@@ -1,27 +1,23 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Deploy dev branch to a staging repository's Pages
+name: Deploy dev branch to staging Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
+    branches: ["dev"]
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment for production
 concurrency:
-  group: "pages-prod"
+  group: "pages-dev"
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
+  deploy-dev:
     environment:
-      name: github-pages-prod
+      name: github-pages-dev
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
@@ -32,8 +28,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
           path: '.'
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages (staging)
         id: deployment
         uses: actions/deploy-pages@v4
+        # Note: To host dev on a separate Pages site under this same repo, you can configure
+        # as needed. If you prefer a different repo for staging, use a PAT and push the
+        # build output to that repo's gh-pages branch (requires setting a secret STAGING_PAT).
+
