@@ -23,7 +23,7 @@ jobs:
 
       - name: Deploy to staging repository
         env:
-          STAGING_REPO: jkoogihw/pdf-sign-staging  # <-- Create this repo (or change name)
+          STAGING_REPO: jkoogihw/pdf-sign-dev  # <-- Create this repo (or change name)
           STAGING_PAT: ${{ secrets.STAGING_PAT }}     # <-- Create this secret in repository settings
         run: |
           if [ -z "$STAGING_PAT" ]; then
