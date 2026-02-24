@@ -16,6 +16,7 @@ const el = {
   dropZonePdf: document.getElementById('dropZonePdf'),
   dropZoneSign: document.getElementById('dropZoneSign'),
   signPreview: document.getElementById('signPreview'),
+  pdfPreview: document.getElementById('pdfPreview'),
 };
 
 function setStatus(message, type = '') {
@@ -62,7 +63,25 @@ function isPng(bytes) {
   return bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78;
 }
 
-function handleFileSelect(file, type) {
+async function renderPdfPreview(pdfBytes) {
+  const normalized = normalizePdfBytes(pdfBytes);
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(normalized) }).promise;
+  const firstPage = await doc.getPage(1);
+
+  const baseViewport = firstPage.getViewport({ scale: 1 });
+  const maxEdge = 100;
+  const scale = maxEdge / Math.max(baseViewport.width, baseViewport.height);
+  const viewport = firstPage.getViewport({ scale });
+
+  const canvas = el.pdfPreview;
+  const ctx = canvas.getContext('2d');
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+
+  await firstPage.render({ canvasContext: ctx, viewport }).promise;
+}
+
+async function handleFileSelect(file, type) {
   if (!file) return;
 
   const input = type === 'pdf' ? el.pdfFile : el.signFile;
@@ -84,6 +103,16 @@ function handleFileSelect(file, type) {
       el.signPreview.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  if (type === 'pdf') {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      validateInputBytes(bytes, 'PDF', file.type || '');
+      await renderPdfPreview(bytes);
+    } catch (error) {
+      setStatus(`PDF 미리보기 실패: ${error.message}`, 'error');
+    }
   }
 }
 
