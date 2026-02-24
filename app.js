@@ -84,13 +84,7 @@ async function renderPdfPreview(pdfBytes) {
 async function handleFileSelect(file, type) {
   if (!file) return;
 
-  const input = type === 'pdf' ? el.pdfFile : el.signFile;
   const container = type === 'pdf' ? el.dropZonePdf : el.dropZoneSign;
-
-  // DataTransfer를 사용하여 input.files 업데이트
-  const dataTransfer = new DataTransfer();
-  dataTransfer.items.add(file);
-  input.files = dataTransfer.files;
 
   // 시각적 피드백 업데이트
   container.classList.add('has-file');
@@ -131,7 +125,14 @@ function initDropZone(zone, type) {
 
   zone.addEventListener('drop', (e) => {
     const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file, type);
+    if (!file) return;
+
+    const input = type === 'pdf' ? el.pdfFile : el.signFile;
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    input.files = dataTransfer.files;
+
+    handleFileSelect(file, type);
   });
 
   zone.addEventListener('click', () => {
