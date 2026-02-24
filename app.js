@@ -16,6 +16,7 @@ const el = {
   dropZonePdf: document.getElementById('dropZonePdf'),
   dropZoneSign: document.getElementById('dropZoneSign'),
   signPreview: document.getElementById('signPreview'),
+  pdfPreview: document.getElementById('pdfPreview'),
 };
 
 function setStatus(message, type = '') {
@@ -62,16 +63,28 @@ function isPng(bytes) {
   return bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78;
 }
 
-function handleFileSelect(file, type) {
+async function renderPdfPreview(pdfBytes) {
+  const normalized = normalizePdfBytes(pdfBytes);
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(normalized) }).promise;
+  const firstPage = await doc.getPage(1);
+
+  const baseViewport = firstPage.getViewport({ scale: 1 });
+  const maxEdge = 100;
+  const scale = maxEdge / Math.max(baseViewport.width, baseViewport.height);
+  const viewport = firstPage.getViewport({ scale });
+
+  const canvas = el.pdfPreview;
+  const ctx = canvas.getContext('2d');
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+
+  await firstPage.render({ canvasContext: ctx, viewport }).promise;
+}
+
+async function handleFileSelect(file, type) {
   if (!file) return;
 
-  const input = type === 'pdf' ? el.pdfFile : el.signFile;
   const container = type === 'pdf' ? el.dropZonePdf : el.dropZoneSign;
-
-  // DataTransfer를 사용하여 input.files 업데이트
-  const dataTransfer = new DataTransfer();
-  dataTransfer.items.add(file);
-  input.files = dataTransfer.files;
 
   // 시각적 피드백 업데이트
   container.classList.add('has-file');
@@ -84,6 +97,16 @@ function handleFileSelect(file, type) {
       el.signPreview.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  if (type === 'pdf') {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      validateInputBytes(bytes, 'PDF', file.type || '');
+      await renderPdfPreview(bytes);
+    } catch (error) {
+      setStatus(`PDF 미리보기 실패: ${error.message}`, 'error');
+    }
   }
 }
 
@@ -102,7 +125,14 @@ function initDropZone(zone, type) {
 
   zone.addEventListener('drop', (e) => {
     const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file, type);
+    if (!file) return;
+
+    const input = type === 'pdf' ? el.pdfFile : el.signFile;
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    input.files = dataTransfer.files;
+
+    handleFileSelect(file, type);
   });
 
   zone.addEventListener('click', () => {
