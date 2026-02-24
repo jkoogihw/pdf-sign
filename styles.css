@@ -75,9 +75,33 @@ h1 {
   cursor: not-allowed;
 }
 
+.page-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.test-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  padding: 10px 14px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.test-link:hover {
+  background: #f8fafc;
+}
+
 .status {
   min-height: 24px;
-  margin-top: 14px;
+  margin-top: 12px;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -141,6 +165,16 @@ h1 {
   border-radius: 4px;
 }
 
+.preview-box canvas {
+  width: auto;
+  height: auto;
+  max-width: 100px;
+  max-height: 100px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
 .preview-box .filename {
   font-size: 12px;
   color: #374151;
@@ -160,4 +194,5 @@ h1 {
   .grid-3, .card.split {
     grid-template-columns: 1fr;
   }
+
 }
